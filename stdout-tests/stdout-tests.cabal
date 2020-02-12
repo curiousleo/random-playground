@@ -3,7 +3,6 @@ cabal-version:       >=1.10
 name:                stdout-tests
 version:             0.1.0.0
 build-type:          Simple
-extra-source-files:  CHANGELOG.md
 
 executable stdout-tests
   main-is:             Main.hs
