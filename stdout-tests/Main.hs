@@ -18,8 +18,21 @@ import qualified System.Random.SplitMix as SplitMix
 random64 :: Rand.RandomGen g => g -> (Word64, g)
 random64 = Rand.random
 
-randomSplit :: Rand.RandomGen g => g -> (g -> (Word64, g)) -> (BS.Builder, g)
-randomSplit gPrev f =
+defaultSequence ::
+     Rand.RandomGen g => (g -> (Word64, g)) -> g -> (BS.Builder, g)
+defaultSequence f gen =
+  let (r1, gen1) = f gen
+      (r2, gen2) = f gen1
+      (r3, gen3) = f gen2
+      (r4, gen4) = f gen3
+   in ( BSP.primFixed
+          (BSP.word64Host BSP.>*< BSP.word64Host BSP.>*< BSP.word64Host BSP.>*<
+           BSP.word64Host)
+          (r1, (r2, (r3, r4)))
+      , gen4)
+
+splitSequence :: Rand.RandomGen g => (g -> (Word64, g)) -> g -> (BS.Builder, g)
+splitSequence f gPrev =
   let (gNext, g) = Rand.split gPrev
       (gL, gR) = Rand.split g
       (gLL, gLR) = Rand.split gL
@@ -34,24 +47,14 @@ randomSplit gPrev f =
           (rLL, (rLR, (rRL, rRR)))
       , gNext)
 
-write64 :: Rand.RandomGen g => g -> (g -> (Word64, g)) -> IO.Handle -> IO ()
-write64 initialGen f out = do
+spew :: Rand.RandomGen g => IO.Handle -> g -> (g -> (BS.Builder, g)) -> IO ()
+spew h initialGen f = do
   ref <- newIORef initialGen
   forever $ do
     gen <- readIORef ref
     let (v, gen') = f gen
     writeIORef ref gen'
-    BS.hPutBuilder out (BSE.word64Host v)
-
-writeSplit64 ::
-     Rand.RandomGen g => g -> (g -> (Word64, g)) -> IO.Handle -> IO ()
-writeSplit64 initialGen f out = do
-  ref <- newIORef initialGen
-  forever $ do
-    gen <- readIORef ref
-    let (v, gen') = randomSplit gen f
-    writeIORef ref gen'
-    BS.hPutBuilder out v
+    BS.hPutBuilder h v
 
 main :: IO ()
 main = do
@@ -61,10 +64,13 @@ main = do
   args <- getArgs
   case args of
     ["random"] ->
-      write64 (Rand.mkStdGen 1337) random64 stdout
+      spew stdout (Rand.mkStdGen 1337) (defaultSequence random64)
     ["random-split"] ->
-      writeSplit64 (Rand.mkStdGen 1337) random64 stdout
+      spew stdout (Rand.mkStdGen 1337) (splitSequence random64)
     ["splitmix"] ->
-      write64 (SplitMix.mkSMGen 1337) SplitMix.nextWord64 stdout
+      spew
+        stdout
+        (SplitMix.mkSMGen 1337)
+        (defaultSequence SplitMix.nextWord64)
     ["splitmix-split"] ->
-      writeSplit64 (SplitMix.mkSMGen 1337) SplitMix.nextWord64 stdout
+      spew stdout (SplitMix.mkSMGen 1337) (splitSequence SplitMix.nextWord64)
