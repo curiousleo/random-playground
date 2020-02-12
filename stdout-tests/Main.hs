@@ -31,6 +31,11 @@ defaultSequence f gen =
           (r1, (r2, (r3, r4)))
       , gen4)
 
+-- | Generate a sequence for stress-testing splittable RNGs.
+--
+-- Hans Georg Schaathun. 2015. Evaluation of splittable pseudo-random
+-- generators. Journal of Functional Programming, Vol. 25.
+-- https://doi.org/10.1017/S095679681500012X
 splitSequence :: Rand.RandomGen g => (g -> (Word64, g)) -> g -> (BS.Builder, g)
 splitSequence f gPrev =
   let (gNext, g) = Rand.split gPrev
