@@ -12,6 +12,7 @@ import System.Environment (getArgs)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BS
+import qualified Data.ByteString.Builder.Prim as BSP
 import qualified System.IO as IO
 import qualified System.Random as Rand
 import qualified System.Random.MWC as MWC
@@ -19,6 +20,18 @@ import qualified System.Random.SplitMix as SplitMix
 
 random64 :: Rand.RandomGen g => g -> (Word64, g)
 random64 = Rand.random
+
+bla :: Rand.StdGen -> (Rand.StdGen, BS.Builder)
+bla gPrev =
+  let (gNext, g) = Rand.split gPrev
+      (gL, gR) = Rand.split g
+      (gLL, gLR) = Rand.split gL
+      (gRL, gRR) = Rand.split gR
+      rLL = fst $ random64 gLL
+      rLR = fst $ random64 gLR
+      rRL = fst $ random64 gRL
+      rRR = fst $ random64 gRR
+   in (gNext, BSP.primMapListFixed BSP.emptyF [rLL, rLR, rRL, rRR])
 
 main :: IO ()
 main = do
