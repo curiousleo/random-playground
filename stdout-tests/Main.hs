@@ -8,7 +8,7 @@ import Control.Monad (forever)
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Word (Word64, Word32, Word8, Word16)
 import System.Environment (getArgs)
-import Data.Massiv.Array
+-- import Data.Massiv.Array
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BS
