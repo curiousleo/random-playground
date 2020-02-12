@@ -7,11 +7,8 @@ extra-source-files:  CHANGELOG.md
 
 executable stdout-tests
   main-is:             Main.hs
-  -- other-modules:       Lib, LibBS
   build-depends:       base >=4.12 && <4.13
                      , bytestring
-  --                   , massiv
-                     , mwc-random
                      , random
                      , splitmix
   default-language:    Haskell2010
