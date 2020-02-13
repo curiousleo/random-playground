@@ -13,6 +13,10 @@ import qualified System.IO as IO
 import qualified System.Random as R
 import qualified System.Random.SplitMix as SM
 
+-------------------------------------------------------------------------------
+-- Helpers with explicit types
+-------------------------------------------------------------------------------
+
 randomInt :: R.RandomGen g => g -> (Int, g)
 randomInt = R.random
 
@@ -21,6 +25,10 @@ random64 = R.random
 
 random32 :: R.RandomGen g => g -> (Word32, g)
 random32 = R.random
+
+-------------------------------------------------------------------------------
+-- Sequence of random numbers, no splitting
+-------------------------------------------------------------------------------
 
 defaultSequence ::
      (R.RandomGen g, Integral i, Integral j) => BS.FixedPrim i -> (g -> (j, g)) -> g -> (BS.Builder, g)
@@ -45,6 +53,10 @@ defaultSequenceWord32 = defaultSequence BS.word32Host
 defaultSequenceWord64 ::
      R.RandomGen g => (g -> (Word64, g)) -> g -> (BS.Builder, g)
 defaultSequenceWord64 = defaultSequence BS.word64Host
+
+-------------------------------------------------------------------------------
+-- Sequences of random numbers that use 'split'
+-------------------------------------------------------------------------------
 
 -- | Generate a sequence for stress-testing splittable RNGs.
 --
@@ -76,6 +88,36 @@ splitSequenceWord32 = splitSequence BS.word32Host
 splitSequenceWordInt :: R.RandomGen g => (g -> (Int, g)) -> g -> (BS.Builder, g)
 splitSequenceWordInt = splitSequence BS.word32Host
 
+-- | 'splitSequenceSL', 'splitSequenceSR' and 'splitSequenceSA' generate
+-- sequences that stress-test splittable RNGs, suggested here:
+-- https://github.com/peteroupc/peteroupc.github.io/blob/master/randomtest.md
+splitSequenceSL ::
+     (R.RandomGen g, Integral i, Integral j) => BS.FixedPrim i -> (g -> (j, g)) -> g -> (BS.Builder, g)
+splitSequenceSL prim f gPrev =
+  let (gL, gR) = R.split gPrev
+      (vR, _) = f gR
+   in (BS.primFixed BS.word32Host (fromIntegral vR), gL)
+
+splitSequenceSR ::
+     (R.RandomGen g, Integral i, Integral j) => BS.FixedPrim i -> (g -> (j, g)) -> g -> (BS.Builder, g)
+splitSequenceSR prim f gPrev =
+  let (gL, gR) = R.split gPrev
+      (vL, _) = f gL
+   in (BS.primFixed prim (fromIntegral vL), gR)
+
+splitSequenceSA ::
+     (R.RandomGen g, Integral i, Integral j) => BS.FixedPrim i -> (g -> (j, g)) -> g -> (BS.Builder, g)
+splitSequenceSA prim f gPrev =
+  let (gL, gR) = R.split gPrev
+      (vR, _) = f gR
+      (gLL, gLR) = R.split gL
+      (vLL, _) = f gLL
+   in (BS.primFixed (prim BS.>*< prim) (fromIntegral vR, fromIntegral vLL), gLR)
+
+-------------------------------------------------------------------------------
+-- Output
+-------------------------------------------------------------------------------
+
 spew :: R.RandomGen g => IO.Handle -> g -> (g -> (BS.Builder, g)) -> IO ()
 spew h initialGen f = do
   ref <- newIORef initialGen
@@ -84,6 +126,10 @@ spew h initialGen f = do
     let (v, gen') = f gen
     BS.hPutBuilder h v
     writeIORef ref gen'
+
+-------------------------------------------------------------------------------
+-- Main
+-------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
@@ -102,7 +148,13 @@ main = do
     ["random-word32-split"] ->
       spew stdout (R.mkStdGen 1337) (splitSequenceWord32 random32)
     ["random-word64-split"] ->
-      spew stdout (R.mkStdGen 1337) (splitSequenceWord64 random64)
+      spew stdout (R.mkStdGen 1337) (splitSequence BS.word64Host random64)
+    ["random-word64-splitsl"] ->
+      spew stdout (R.mkStdGen 1337) (splitSequenceSL BS.word64Host random64)
+    ["random-word64-splitsr"] ->
+      spew stdout (R.mkStdGen 1337) (splitSequenceSR BS.word64Host random64)
+    ["random-word64-splitsa"] ->
+      spew stdout (R.mkStdGen 1337) (splitSequenceSA BS.word64Host random64)
 
     -- splitmix
     ["splitmix-word32"] ->
