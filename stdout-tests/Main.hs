@@ -4,7 +4,7 @@ module Main where
 
 import Control.Monad (forever)
 import Data.IORef (newIORef, readIORef, writeIORef)
-import Data.Word (Word64)
+import Data.Word (Word32, Word64)
 import System.Environment (getArgs)
 
 import qualified Data.ByteString.Builder as BS
@@ -16,6 +16,9 @@ import qualified System.Random.SplitMix as SM
 random64 :: R.RandomGen g => g -> (Word64, g)
 random64 = R.random
 
+random32 :: R.RandomGen g => g -> (Word32, g)
+random32 = R.random
+
 defaultSequence ::
      R.RandomGen g => (g -> (Word64, g)) -> g -> (BS.Builder, g)
 defaultSequence f gen =
@@ -25,6 +28,18 @@ defaultSequence f gen =
       (r4, gen4) = f gen3
    in ( BS.primFixed
           (BS.word64Host BS.>*< BS.word64Host BS.>*< BS.word64Host BS.>*< BS.word64Host)
+          (r1, (r2, (r3, r4)))
+      , gen4)
+
+defaultSequenceInt ::
+     R.RandomGen g => (g -> (Word32, g)) -> g -> (BS.Builder, g)
+defaultSequenceInt f gen =
+  let (r1, gen1) = f gen
+      (r2, gen2) = f gen1
+      (r3, gen3) = f gen2
+      (r4, gen4) = f gen3
+   in ( BS.primFixed
+          (BS.word32Host BS.>*< BS.word32Host BS.>*< BS.word32Host BS.>*< BS.word32Host)
           (r1, (r2, (r3, r4)))
       , gen4)
 
@@ -64,11 +79,13 @@ main = do
   IO.hSetBuffering stdout (IO.BlockBuffering Nothing)
   args <- getArgs
   case args of
-    ["random"] ->
+    ["random-int"] ->
+      spew stdout (R.mkStdGen 1337) (defaultSequenceInt random32)
+    ["random-word64"] ->
       spew stdout (R.mkStdGen 1337) (defaultSequence random64)
-    ["random-split"] ->
+    ["random-word64-split"] ->
       spew stdout (R.mkStdGen 1337) (splitSequence random64)
-    ["splitmix"] ->
+    ["splitmix-word64"] ->
       spew stdout (SM.mkSMGen 1337) (defaultSequence SM.nextWord64)
-    ["splitmix-split"] ->
+    ["splitmix-word64-split"] ->
       spew stdout (SM.mkSMGen 1337) (splitSequence SM.nextWord64)
